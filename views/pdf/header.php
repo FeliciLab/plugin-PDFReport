@@ -7,8 +7,9 @@
 
     <link type="text/css" href="bootstrap.min.css" rel="stylesheet" />
     <link type="text/css" href="stylePdfReport.css" rel="stylesheet" />
-    <!-- <link type="text/css" href="<?php //$this->asset('css/bootstrap.min.css') ?>" rel="stylesheet" />
-    <link type="text/css" href="<?php //$this->asset('css/stylePdfReport.css') ?>" rel="stylesheet" /> -->
+    <link type="text/css" href="<?php $this->asset('css/bootstrap.min.css') ?>" rel="stylesheet" />
+    <link type="text/css" href="<?php $this->asset('css/stylePdfReport.css') ?>" rel="stylesheet" />
+    <script src="<?php $this->asset('js/pdfreport/jquery.min.js') ?>"></script>
     <style>
             @page {  margin: 24px 24px;  }
             footer { position: fixed; bottom: -15px; left: 0px; right: 0px;height: 50px; border-top: 1px solid #c3c3c3;
@@ -17,23 +18,24 @@
     </style>
 </head>
 <body>
-<footer>
-    <p style="font-size: 8px;color: rgba(0, 0, 0, 0.6); align-items: center; text-align: center;">
-        <!-- <small>Escola de Saúde Pública do Ceará Paulo Marcelo Martins Rodrigues</small> -->
-    </p>
-    
-</footer>
+<div class="container">
+    <br>
+    <a href="#" class="btn btn-primary" id="btn-print-report" >
+        <i class="fa fa-print"></i>
+        Imprimir Relatório
+    </a>
+</div>
 <table width="100%" style="height: 100px;">
     <thead>
         <tr class="">
             <td>                   
-                <img src="<?php echo PLUGINS_PATH.'PDFReport/assets/img/logo-saude.png'; ?>" style="float:left;"/>
-                <!-- <img src="<?php $this->asset('img/logo-saude.png') ?>"  class="pull-left" > -->
+                <!-- <img src="<?php //echo PLUGINS_PATH.'PDFReport/assets/img/logo-saude.png'; ?>" style="float:left;"/> -->
+                <img src="<?php $this->asset('img/logo-saude.png') ?>"  class="pull-left" >
 
             </td>
             <td>
-            <!-- <img src="<?php $this->asset('img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png') ?>" class="pull-right" alt=""> -->
-                <img src="<?php echo PLUGINS_PATH.'PDFReport/assets/img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png'; ?>"  style="float:right;"/>
+            <img src="<?php $this->asset('img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png') ?>" class="pull-right" alt="">
+                <!-- <img src="<?php //echo PLUGINS_PATH.'PDFReport/assets/img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png'; ?>"  style="float:right;"/> -->
             </td>
         </tr>
     </thead>

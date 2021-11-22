@@ -172,6 +172,7 @@ if (!empty($reg->opportunity->getFile('header')->path)) :
         </tr>
     </tbody>
 </table>
+
 <?php
 $fieldOp = $app->view->regObject['fieldsOpportunity'];
 $this->part('reports/section', ['field' => $fieldOp, 'reg' => $reg]);
