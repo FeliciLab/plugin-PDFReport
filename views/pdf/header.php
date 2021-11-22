@@ -29,13 +29,10 @@
     <thead>
         <tr class="">
             <td>                   
-                <!-- <img src="<?php //echo PLUGINS_PATH.'PDFReport/assets/img/logo-saude.png'; ?>" style="float:left;"/> -->
                 <img src="<?php $this->asset('img/logo-saude.png') ?>"  class="pull-left" >
-
             </td>
             <td>
             <img src="<?php $this->asset('img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png') ?>" class="pull-right" alt="">
-                <!-- <img src="<?php //echo PLUGINS_PATH.'PDFReport/assets/img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png'; ?>"  style="float:right;"/> -->
             </td>
         </tr>
     </thead>
