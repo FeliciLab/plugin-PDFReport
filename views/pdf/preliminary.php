@@ -9,6 +9,10 @@
 
 <main>
     <div class="container">
+        <select class="form-control" id="select-relatory-option">
+            <option value="note">Por Nota</option>
+            <option value="alfa">Ordem alfabética</option>
+        </select>
         <div class="pre-text">Resultado Preliminar</div>
         <div class="opportunity-info">
             <p class="text-opp">Oportunidade</p>
@@ -28,3 +32,19 @@
         }
     ?>
 </main>
+
+<script>
+    $(document).ready(function() {
+
+        const urlSearchParams = new URLSearchParams(window.location.search);
+        const params = Object.fromEntries(urlSearchParams.entries());
+
+        if(params['typeRelatorio']){
+            $("#select-relatory-option").val(params['typeRelatorio']);
+        }
+        $('#select-relatory-option').on('change', function() {
+            params['typeRelatorio'] = this.value;
+            window.location.href = window.location.origin + window.location.pathname + "?" + jQuery.param(params);
+        });
+    });
+</script>

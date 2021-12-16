@@ -1,6 +1,7 @@
 <?php 
     $this->layout = 'nolayout-pdf'; 
     $reg = $app->view->regObject['ins'];
+    $html = $app->view->jsObject['html'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -21,7 +22,7 @@
     <thead>
         <tr class="">
             <td>                   
-                <img src="<?php echo PLUGINS_PATH.'PDFReport/assets/img/logo-saude.png'; ?>" style="float:left;"/>
+                <img src="<?php echo $html == false ? PLUGINS_PATH.'PDFReport/assets/img/logo-saude.png' : $this->asset('img/logo-saude.png')  ?>" style="float:left;"/>
             </td>
             <td>
             <img src="<?php echo PLUGINS_PATH.'PDFReport/assets/img/ESP-CE-ORGAO-SEC-INVERTIDA-WEB2_3.png'; ?>" style="margin-left: 380px;" alt="">

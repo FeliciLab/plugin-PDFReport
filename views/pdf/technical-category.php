@@ -9,14 +9,7 @@
     $opp = $app->view->jsObject['opp'];
     $sections = $opp->evaluationMethodConfiguration->sections;
     $criterios = $opp->evaluationMethodConfiguration->criteria;
-
-    function invenDescSort($item1,$item2){
-        if ($item1->consolidatedResult == $item2->consolidatedResult) return 0;
-        return ($item1->consolidatedResult < $item2->consolidatedResult) ? 1 : -1;
-    }
-    usort($sub,'invenDescSort');
     
-  
 ?>
 <div class="container">
     <?php 
@@ -50,9 +43,11 @@
             <tbody>
                 <?php 
                 $countArray = [];
+                $arrayCheck = [];
                 foreach($sub as $key => $nameSub){
                     if($nameCat == $nameSub->category){
                         $countArray[$nameCat][] = $key;
+                        $arrayCheck[] = $nameSub->category;
                         ?>
                         <tr>
                             <?php 
@@ -77,6 +72,13 @@
                     <?php
                     }
                 }
+                if(!in_array($nameCat, $arrayCheck)){ ?>
+                    <tr>
+                        <td class="text-left"></td>
+                        <td>Não há candidatos selecionados</td>
+                        <td class="text-center"></td>
+                    </tr>
+                <?php }
                 ?>
             </tbody>
         </table>

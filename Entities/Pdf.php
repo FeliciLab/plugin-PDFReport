@@ -1,145 +1,274 @@
 <?php
-namespace PDFReport\Controllers;
-
-require PLUGINS_PATH.'PDFReport/vendor/autoload.php';
-require PLUGINS_PATH.'PDFReport/vendor/dompdf/dompdf/src/FontMetrics.php';
+namespace PDFReport\Entities;
 
 use DateTime;
-use Mpdf\Mpdf;
-use Dompdf\Dompdf;
-use Dompdf\Options;
-use \MapasCulturais\App;
-use PDFReport\Entities\Pdf as EntitiesPdf;
+use MapasCulturais\App;
+use Doctrine\ORM\Mapping as ORM;
+use MapasCulturais\RegistrationMeta;
 
-const NO_SELECTION = 0;
-const LIST_SUBSCRIBED = 1;
-const LIST_PRELIMINARY = 2;
-const LIST_DEFINITIVE = 3;
-const LIST_CONTACTS = 4;
+class Pdf extends \MapasCulturais\Entity{
 
-class Pdf extends \MapasCulturais\Controller{
-
-    function GET_gerarPdf() {
+    static public  function getValueField($id, $registration) {
         $app = App::i();
-
-        $array = [
-            'regs' => '',
-            'title' => '',
-            'template' => '',
-            'claimDisabled' => null,
-            'pluginConf' => ['tempDir' => dirname(__DIR__) . '/vendor/mpdf/mpdf/tmp','mode' => 'utf-8',
-            'format' => 'A4']
-        ];
-        if($this->getData['selectRel'] == NO_SELECTION) EntitiesPdf::handleRedirect('Ops! Selecione uma opção', 401, $this->getData['idopportunityReport']);
-        else if($this->getData['selectRel'] == LIST_SUBSCRIBED) $array = EntitiesPdf::listSubscribedHandle($app, $array, $this->getData);
-        else if($this->getData['selectRel'] == LIST_PRELIMINARY) $array = EntitiesPdf::listPreliminaryHandle($app, $array, $this->getData);
-        else if($this->getData['selectRel'] == LIST_DEFINITIVE) $array = EntitiesPdf::listDefinitiveHandle($app, $array, false, $this->getData);
-        else if($this->getData['selectRel'] == LIST_CONTACTS) $array = EntitiesPdf::listContactsHandle($app, $array, $this->getData);
-        else $app->redirect($app->createUrl('oportunidade/'.$this->getData['idopportunityReport']), 401);
-
-        $app->view->jsObject['subscribers'] = $array['regs']['regs'];
-        $app->view->jsObject['opp'] = $array['regs']['opp'];
-        $app->view->jsObject['claimDisabled'] = $array['claimDisabled'];
-        $app->view->jsObject['title'] = $array['title'];
-
-        if($this->getData['selectRel'] == LIST_PRELIMINARY || $this->getData['selectRel'] == LIST_DEFINITIVE){
-            $app->render($array['template']);
-            exit;
-        }
-        
-        $mpdf = new Mpdf($array['pluginConf']);
-        ob_start();
-
-        $content = $app->view->fetch($array['template']);
-        $mpdf->SetDisplayMode('fullpage');
-        $mpdf->SetTitle('Mapa da Saúde - Relatório');
-        $stylesheet = file_get_contents(PLUGINS_PATH.'PDFReport/assets/css/stylePdfReport.css');
-        $mpdf->AddPage('', // L - landscape, P - portrait 
-                '', '', '', '',
-                5, // margin_left
-                5, // margin right
-                10, // margin top
-                0, // margin bottom
-                0, // margin header
-                0
-            ); // margin footer
-        $mpdf->WriteHTML($stylesheet,1);
-        $mpdf->WriteHTML($content,2);
-        $mpdf->Output('MapaDaSaude_Relatorio.pdf', 'I');
-        exit;
+        $body = 'field_'.$id;
+        return $app->repo('RegistrationMeta')->findBy([
+            'key' => $body,
+            'owner' => $registration
+        ]);
+              
     }
-    
-    function GET_minha_inscricao() {
-        ini_set('display_errors', 1);
+
+    static public function getNameField($id) {
         $app = App::i();
-        //SOMENTE AUTENTICADO
-        if($app->user->is('guest')){
-            $app->auth->requireAuthentication();
-        }
+        $body = 'field_'.$id;
+        return $app->repo('RegistrationFieldConfiguration')->findBy(['owner' => $id]);
+    }
 
-        $mpdf = new Mpdf(['tempDir' => dirname(__DIR__) . '/vendor/mpdf/mpdf/tmp','mode' => 'utf-8',
-        'format' => 'A4',
-        'orientation' => 'L']);
-        
-        $reg = $app->repo('Registration')->find($this->data['id']);
-
-        //SE O DONO DA INSCRIÇÃO NAO FOR O MESMO LOGADO, ENTÃO NÃO TEM PERMISSÃO DE ACESSAR.
-        if($reg->owner->userId != $app->user->id) {
-           //SE OS IDS FOREM DIFERENTE, VERIRICA SE ELE NAO É UM ADMIN PARA RETORNAR A PÁGINA ANTERIOR           
-            if(!$reg->opportunity->owner->canUser('@control')){                
-                $_SESSION['error'] = "Ops! Você não tem permissão";               
-                $app->redirect($app->request()->getReferer(), 403);            
+    static public function mask($val, $mask) {
+        $maskared = '';
+        $k = 0;
+        for($i = 0; $i<=strlen($mask)-1; $i++) {
+            if($mask[$i] == '#') {
+                if(isset($val[$k])) $maskared .= $val[$k++];
+            } else {
+                if(isset($mask[$i])) $maskared .= $mask[$i];
             }
         }
-       
-        //INSTANCIA DO TIPO ARRAY OBJETO
-        $app->view->regObject = new \ArrayObject;
-        $app->view->regObject['ins'] = $reg;
-        $fields = [];
-        //CRIANDO UM ARRAY COM SOMENTE ALGUNS ITENS DO OBJETO
-        foreach ($reg->opportunity->registrationFieldConfigurations as $field) {
-         //   dump($fields);
-            array_push($fields , [
-                        'displayOrder' => $field->displayOrder,
-                        'id' => $field->id,
-                        'title' => $field->title,
-                        'description' => $field->description,
-                        'fieldType' => $field->fieldType,
-                        'config' => $field->config,
-                        'owner' => $field->owner                        
-                    ]);
-        }
-       // die;
-        
-        //ORDENANDO O ARRAY EM ORDEM DE ID
-        sort($fields);
-
-        $registrationFieldConfigurations = $fields;
-        $app->view->regObject['fieldsOpportunity'] = $registrationFieldConfigurations;
-
-        $template   = 'pdf/my-registration';
-        //$app->render($template);
-        ob_start();
-        $content = $app->view->fetch($template);
-
-        $footer = '<div style="border-top: 1px solid #c5c5c5;">
-        <p style="text-align: center; font-size: 10px;"><span>Escola de Saúde Pública do Ceará Paulo Marcelo Martins Rodrigues</span></p>
-        <p style="text-align: center; font-size: 10px;"><span>Av. Antônio Justa, 3161 - Meireles - CEP: 60.165-090</span></p>
-        <p style="text-align: center; font-size: 10px;"><span>Fortaleza / CE - Fone: (85) 3101.1398</span></p>
-        </div>';
-                
-        $mpdf->SetHTMLFooter($footer);
-        $mpdf->SetHTMLFooter($footer, 'E');
-        $mpdf->writingHTMLfooter = true;
-        //$mpdf->SetDisplayMode('fullpage');
-        $mpdf->SetTitle('Mapa da Saúde - Relatório');
-        $stylesheet = file_get_contents(PLUGINS_PATH.'PDFReport/assets/css/stylePdfReport.css');
-        $mpdf->WriteHTML(ob_get_clean());
-        $mpdf->WriteHTML($stylesheet,1);
-        $mpdf->WriteHTML($content,2);
-        $mpdf->Output();
-        exit;
+        return $maskared;
     }
 
+    static function oportunityRegistrationAproved($idopportunity, $status) {
+
+        $app = App::i();
+        $opp = $app->repo('Opportunity')->find($idopportunity);
+        
+        if($status == 10) {
+            $dql = "SELECT r
+                    FROM 
+                    MapasCulturais\Entities\Registration r
+                    WHERE r.opportunity = {$idopportunity}
+                    AND r.status = 10 ORDER BY r.consolidatedResult DESC";
+            $query = $app->em->createQuery($dql);
+            $regs = $query->getResult();
+        }else{
+            $regs = $app->repo('Registration')->findBy(
+                [
+                'opportunity' => $idopportunity
+                ]
+            );
+        }
+        
+        return ['opp' => $opp, 'regs' => $regs];
+    }
+
+    static function oportunityAllRegistration($idopportunity, $orderBy = null){
+        $app = App::i();
+        $opp = $app->repo('Opportunity')->find($idopportunity);
+
+        $regs = $app->repo('Registration')->findBy(
+            [
+            'opportunity' => $idopportunity
+            ]
+        );
+
+        if($orderBy != null){
+            $type = $opp->evaluationMethodConfiguration->type->id;
+            if($orderBy == 'note'){
+                if($type == 'technicalna'){
+                    dump("nota do nao se aplica");
+                    die;
+                }
+                usort($regs, function ($item1, $item2) {
+                    if ($item1->consolidatedResult == $item2->consolidatedResult) return 0;
+                    return ($item1->consolidatedResult < $item2->consolidatedResult) ? 1 : -1;
+                });
+            }else if($orderBy == 'alfa'){
+                usort($regs, function ($a, $b) {
+                    return strcmp($a->owner->name, $b->owner->name);
+                });
+            }
+        }
+        return ['opp' => $opp, 'regs' => $regs];
+    }
+
+    static function verifyResource($idOportunidade) {
+        $app = App::i();
+        $opp = $app->repo('OpportunityMeta')->findBy(['owner'=>$idOportunidade,'key'=>'claimDisabled']);
+        return $opp;
+    }
+
+    static function handleRedirect($error_message, $status_code, $opp_id){
+        $app = App::i();
+        $_SESSION['error'] = $error_message;
+        $url = $app->createUrl('oportunidade/'.$opp_id.'#/tab=inscritos');
+        $app->redirect(substr_replace($url ,"", -1), $status_code);
+    }
+
+    static function listSubscribedHandle($app, $array, $getData){
+        $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 'ALL');
+        if(empty($array['regs']['regs'])){
+            self::handleRedirect('Ops! Não tem inscrito nessa oportunidade.', 401, $getData['idopportunityReport']);
+        }
+        $array['title'] = 'Relatório de inscritos na oportunidade';
+        $array['template'] = 'pdf/subscribers';
+        return $array;
+    }
+
+    static function listPreliminaryHandle($app, $array, $getData){
+
+        $array['regs'] = self::oportunityAllRegistration($getData['idopportunityReport'], $getData['typeRelatorio'] ?? null);
+        if(empty($array['regs']['regs'])){
+            self::handleRedirect('Ops! A oportunidade deve estar publicada.', 401, $getData['idopportunityReport']);
+        }
+
+        $verifyResource = self::verifyResource($getData['idopportunityReport']);
+
+        if(isset($verifyResource[0])){
+            $array['claimDisabled'] = $verifyResource[0]->value;
+        }
+        $array['title'] = 'Resultado Preliminar do Certame';
+        $array['template'] = 'pdf/preliminary';
+        return $array;
+    }
+
+    static function listDefinitiveHandle($app, $array, $period = false, $getData){
+        $id = $getData['idopportunityReport'];
+
+        $dqlOpMeta = "SELECT op FROM 
+            MapasCulturais\Entities\OpportunityMeta op
+            WHERE op.owner = {$id}";
+
+        $resultOpMeta = $app->em->createQuery($dqlOpMeta)->getResult();
+
+        $dateInit = $dateEnd = $hourInit = $hourEnd = "";
+
+        foreach ($resultOpMeta as $key => $valueOpMeta) {
+            if($valueOpMeta->key == 'date-initial'){
+                $dateInit = $valueOpMeta->value;
+            }
+            if($valueOpMeta->key == 'hour-initial'){
+                $hourInit = $valueOpMeta->value;
+            }
+            if($valueOpMeta->key == 'date-final'){
+                $dateEnd = $valueOpMeta->value;
+            }
+            if($valueOpMeta->key == 'hour-final'){
+                $hourEnd = $valueOpMeta->value;
+            }
+        }
+        $dateHourNow = new DateTime;
+        
+        $dateAndHourInit = $dateInit.' '.$hourInit;
+
+        $dateVerifyPeriod = DateTime::createFromFormat('d/m/Y H:i:s', $dateAndHourInit);
+
+        if($dateHourNow > $dateVerifyPeriod){
+            $period = true;
+        }
+
+        if($period) {
+            $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+            if(empty($array['regs']['regs'])){
+                self::handleRedirect('Ops! Para gerar o relatório definitivo a oportunidade deve estar publicada.', 401, $getData['idopportunityReport']);
+            }
+            
+            //SELECT AOS RECURSOS
+            $dql = "SELECT r
+            FROM 
+            Saude\Entities\Resources r
+            WHERE r.opportunityId = {$id}";
+            $resource = $app->em->createQuery($dql)->getResult();
+            $countPublish = 0;//INICIANDO VARIAVEL COM 0
+            foreach ($resource as $key => $value) {
+                if($value->replyPublish == 1 && $value->opportunityId->publishedRegistrations == 1) {
+                    $countPublish++;//SE ENTRAR INCREMENTA A VARIAVEL
+                }
+            }
+            if($countPublish == count($resource) && $countPublish > 0 && count($resource) > 0) {
+                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                $array['title'] = 'Resultado Definitivo do Certame';
+                $array['template'] = 'pdf/definitive';
+               
+            }else if($countPublish == count($resource) && $countPublish == 0 && count($resource) == 0){
+               
+                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                
+                if(empty($array['regs']['regs'])) {
+                    self::handleRedirect('Ops! Você deve publicar a oportunidade para esse relatório.', 401, $getData['idopportunityReport']);
+                }
+
+                $verifyResource = self::verifyResource($getData['idopportunityReport']);
+                
+                if(isset($verifyResource[0])){
+                    $array['claimDisabled'] = $verifyResource[0]->value;
+                }
+                
+                if(isset($regs['regs'][0]) && empty($verifyResource) || $array['claimDisabled'] == 1 ){
+                    $array['title'] = 'Resultado Definitivo do Certame';
+                    $array['template'] = 'pdf/definitive';
+                }else if(isset($regs['regs'][0]) && empty($verifyResource) || $array['claimDisabled'] == 0){
+                    $array['title'] = 'Resultado Definitivo do Certame';
+                    $array['template'] = 'pdf/definitive';
+                }else{
+                    $app->redirect($app->createUrl('oportunidade/'.$getData['idopportunityReport'].'#/tab=inscritos'), 401);
+                }
+            }else{
+                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                $array['title'] = 'Resultado Definitivo do Certame';
+                $array['template'] = 'pdf/definitive';
+            }
+        }else{
+            self::handleRedirect('Ops! Ocorreu um erro inesperado.', 401, $getData['idopportunityReport']);
+        }
+        return $array;
+    }
     
+    static function listContactsHandle($app, $array, $getData){
+        $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+
+        if(empty($regs['regs']['regs'])){
+            self::handleRedirect('', 401, $getData['idopportunityReport']);
+        }
+        $array['title'] = 'Relatório de contato';
+        $array['template'] = 'pdf/contact';
+        return $array;
+    }
+
+    static  function getSectionNote($opp, $registration, $section_id){
+        $total = 0.00;
+        $app = App::i();
+        $committee = $opp->getEvaluationCommittee();
+        $type = $opp->evaluationMethodConfiguration->type->id;
+        $users = [];
+        foreach ($committee as $item) {
+            $users[] = $item->agent->user->id;
+        }
+        $evaluations = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($registration, $users);
+        foreach ($evaluations as $eval){
+            $cfg = $eval->getEvaluationMethodConfiguration();
+            $category = $eval->registration->category;
+            $totalSection = 0.00;
+            $totalWeight = 0.00;
+            foreach ($cfg->criteria as $cri) {
+                if ($section_id == $cri->sid) {
+                    $key = $cri->id;
+                    if(!isset($eval->evaluationData->$key)){
+                        return null;
+                    } else if($type == 'technicalna') {
+                        $val = floatval($eval->evaluationData->$key);
+                        if($val != ''){
+                            $totalSection += is_numeric($val) ? floatval($cri->weight) * floatval($val) : 0;
+                            $totalWeight += $cri->weight;
+                        }
+                    }
+                    else{
+                        $val = floatval($eval->evaluationData->$key);
+                        $totalSection += is_numeric($val) ? floatval($cri->weight) * floatval($val) : 0;
+                    }
+                }
+            }
+            $total += $type != 'technicalna' ? floatval($totalSection) : floatval($totalSection/$totalWeight);
+        }
+        return $total / count($users);
+    }
 }

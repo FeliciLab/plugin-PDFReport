@@ -44,7 +44,12 @@ class Pdf extends \MapasCulturais\Controller{
         $app->view->jsObject['opp'] = $array['regs']['opp'];
         $app->view->jsObject['claimDisabled'] = $array['claimDisabled'];
         $app->view->jsObject['title'] = $array['title'];
-
+        if($this->getData['selectRel'] == LIST_PRELIMINARY || $this->getData['selectRel'] == LIST_DEFINITIVE ){
+            $app->view->jsObject['html'] = true;
+            $content = $app->view->fetch($array['template']);
+            echo $content;
+            exit;
+        }
         $content = $app->view->fetch($array['template']);
         $mpdf->SetDisplayMode('fullpage');
         $mpdf->SetTitle('Mapa da Saúde - Relatório');
