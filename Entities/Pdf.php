@@ -227,7 +227,12 @@ class Pdf extends \MapasCulturais\Entity{
         foreach ($committee as $item) {
             $users[] = $item->agent->user->id;
         }
-        $evaluations = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($registration, $users);
+        //AS INSCRIÇÕES AVALIADAS E ENVIADAS
+        $status = [ 
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_EVALUATED,
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_SENT
+        ];
+        $evaluations = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($registration, $users, $status);
         foreach ($evaluations as $eval){
             $cfg = $eval->getEvaluationMethodConfiguration();
             $category = $eval->registration->category;
@@ -245,8 +250,15 @@ class Pdf extends \MapasCulturais\Entity{
             }
             $total += floatval($totalSection);
         }
-        if(count($users) > 0) {
-            return $total / count($users);
+        
+        //TOTAL DE AVALIAÇÕES
+        $num = count($evaluations);
+        //SE TIVER UMA OU MAIS AVALIAÇÃO
+        if($num > 0) {
+            //NOTA DA AVALIAÇÃO DIVIDIDA PELO TOTAL DE AVALIAÇÃO
+            return  number_format($total / $num, 2);
+        } else {
+            return null;
         }
         
     }
