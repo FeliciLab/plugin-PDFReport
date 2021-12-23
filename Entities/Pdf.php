@@ -36,28 +36,28 @@ class Pdf extends \MapasCulturais\Entity{
         return $maskared;
     }
 
-    static function oportunityRegistrationAproved($idopportunity, $status) {
-
+    static function oportunityRegistrationByStatus($idopportunity, $status = 0) {
         $app = App::i();
         $opp = $app->repo('Opportunity')->find($idopportunity);
         
-        if($status == 10) {
-            $dql = "SELECT r
-                    FROM 
-                    MapasCulturais\Entities\Registration r
-                    WHERE r.opportunity = {$idopportunity}
-                    AND r.status = 10 ORDER BY r.consolidatedResult DESC";
-            $query = $app->em->createQuery($dql);
-            $regs = $query->getResult();
-        }else{
-           
-            $regs = $app->repo('Registration')->findBy(
-                [
-                'opportunity' => $idopportunity
-                ]
-            );
-           
+        $where = "";
+        if ($status) {
+            $where .= " AND r.status = :status ";
+        } else {
+            $where .= " AND r.status > :status ";
         }
+
+        $dql = "SELECT r
+                FROM 
+                MapasCulturais\Entities\Registration r
+                WHERE r.opportunity = :opportunity
+                {$where}
+                ORDER BY r.consolidatedResult DESC";
+        $query = $app->em->createQuery($dql);
+        $query->setParameter('opportunity', $idopportunity);
+
+        $query->setParameter('status', $status);
+        $regs = $query->getResult();
        
         return ['opp' => $opp, 'regs' => $regs];
     }
@@ -89,7 +89,7 @@ class Pdf extends \MapasCulturais\Entity{
     }
 
     static function listSubscribedHandle($app, $array, $getData){
-        $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 'ALL');
+        $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport']);
         if(empty($array['regs']['regs'])){
             self::handleRedirect('Ops! Não tem inscrito nessa oportunidade.', 401, $getData['idopportunityReport']);
         }
@@ -100,7 +100,7 @@ class Pdf extends \MapasCulturais\Entity{
 
     static function listPreliminaryHandle($app, $array, $getData){
 
-        $array['regs'] = self::oportunityAllRegistration($getData['idopportunityReport']);
+        $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport']);
         
         if(empty($array['regs']['regs'])){
             self::handleRedirect('Ops! A oportunidade deve estar publicada.', 401, $getData['idopportunityReport']);
@@ -121,9 +121,12 @@ class Pdf extends \MapasCulturais\Entity{
 
         $dqlOpMeta = "SELECT op FROM 
             MapasCulturais\Entities\OpportunityMeta op
-            WHERE op.owner = {$id}";
+            WHERE op.owner = :owner";
 
-        $resultOpMeta = $app->em->createQuery($dqlOpMeta)->getResult();
+        $query = $app->em->createQuery($dqlOpMeta);
+        $query->setParameter('owner', $id);
+
+        $resultOpMeta = $query->getResult();
 
         $dateInit = $dateEnd = $hourInit = $hourEnd = "";
 
@@ -152,17 +155,21 @@ class Pdf extends \MapasCulturais\Entity{
         }
 
         if($period) {
-            $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+            $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport'], 10);
             if(empty($array['regs']['regs'])){
                 self::handleRedirect('Ops! Para gerar o relatório definitivo a oportunidade deve estar publicada.', 401, $getData['idopportunityReport']);
             }
             
             //SELECT AOS RECURSOS
             $dql = "SELECT r
-            FROM 
-            Saude\Entities\Resources r
-            WHERE r.opportunityId = {$id}";
-            $resource = $app->em->createQuery($dql)->getResult();
+                FROM 
+                Saude\Entities\Resources r
+                WHERE r.opportunityId = :opportunity";
+            $query = $app->em->createQuery($dql);
+            $query->setParameter('opportunity', $id);
+
+            $resource = $query->getResult();
+
             $countPublish = 0;//INICIANDO VARIAVEL COM 0
             foreach ($resource as $key => $value) {
                 if($value->replyPublish == 1 && $value->opportunityId->publishedRegistrations == 1) {
@@ -170,13 +177,13 @@ class Pdf extends \MapasCulturais\Entity{
                 }
             }
             if($countPublish == count($resource) && $countPublish > 0 && count($resource) > 0) {
-                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport'], 10);
                 $array['title'] = 'Resultado Definitivo do Certame';
                 $array['template'] = 'pdf/definitive';
                
             }else if($countPublish == count($resource) && $countPublish == 0 && count($resource) == 0){
                
-                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport'], 10);
                 
                 if(empty($array['regs']['regs'])) {
                     self::handleRedirect('Ops! Você deve publicar a oportunidade para esse relatório.', 401, $getData['idopportunityReport']);
@@ -198,7 +205,7 @@ class Pdf extends \MapasCulturais\Entity{
                     $app->redirect($app->createUrl('oportunidade/'.$getData['idopportunityReport'].'#/tab=inscritos'), 401);
                 }
             }else{
-                $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+                $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport'], 10);
                 $array['title'] = 'Resultado Definitivo do Certame';
                 $array['template'] = 'pdf/definitive';
             }
@@ -209,7 +216,7 @@ class Pdf extends \MapasCulturais\Entity{
     }
     
     static function listContactsHandle($app, $array, $getData){
-        $array['regs'] = self::oportunityRegistrationAproved($getData['idopportunityReport'], 10);
+        $array['regs'] = self::oportunityRegistrationByStatus($getData['idopportunityReport'], 10);
 
         if(empty($regs['regs']['regs'])){
             self::handleRedirect('', 401, $getData['idopportunityReport']);
@@ -227,7 +234,12 @@ class Pdf extends \MapasCulturais\Entity{
         foreach ($committee as $item) {
             $users[] = $item->agent->user->id;
         }
-        $evaluations = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($registration, $users);
+        //AS INSCRIÇÕES AVALIADAS E ENVIADAS
+        $status = [ 
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_EVALUATED,
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_SENT
+        ];
+        $evaluations = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($registration, $users, $status);
         foreach ($evaluations as $eval){
             $cfg = $eval->getEvaluationMethodConfiguration();
             $category = $eval->registration->category;
@@ -245,11 +257,19 @@ class Pdf extends \MapasCulturais\Entity{
             }
             $total += floatval($totalSection);
         }
-        if(count($users) > 0) {
-            return $total / count($users);
+        
+        //TOTAL DE AVALIAÇÕES
+        $num = count($evaluations);
+        //SE TIVER UMA OU MAIS AVALIAÇÃO
+        if($num > 0) {
+            //NOTA DA AVALIAÇÃO DIVIDIDA PELO TOTAL DE AVALIAÇÃO
+            return  number_format($total / $num, 2);
+        } else {
+            return null;
         }
         
     }
+    
     static public function clearCPF_CNPJ($valor){
         $valor = trim($valor);
         $valor = str_replace(".", "", $valor);
@@ -310,54 +330,57 @@ class Pdf extends \MapasCulturais\Entity{
     }
     
     static public function showAgenteOwnerField($field, $metaData, $owner) {
-        
+        $valueField = null;
         if ($field == '@location') {
             if(!is_null($owner['En_Complemento'])) {
-                print_r("CEP: ".$owner['En_CEP'].', 
+                $valueField = "CEP: ".$owner['En_CEP'].', 
                 Logradouro: '.$owner['En_Nome_Logradouro'].', 
                 Nº: '.$owner['En_Num'].', Comp: '.$owner['En_Complemento'].', 
                 Bairro: '.$owner['En_Bairro'].', 
                 Cidade: '.$owner['En_Municipio'].', 
-                UF: '.$owner['En_Estado']);
+                UF: '.$owner['En_Estado'];
+                
             }else{
-                print_r("CEP: ".$owner['En_CEP'].', 
+                $valueField = "CEP: ".$owner['En_CEP'].', 
                 Logradouro: '.$owner['En_Nome_Logradouro'].', 
                 Nº: '.$owner['En_Num'].', 
                 Bairro: '.$owner['En_Bairro'].', 
                 Cidade: '.$owner['En_Municipio'].', 
-                UF: '.$owner['En_Estado']);
+                UF: '.$owner['En_Estado'];              
             }
             
-        }else
-        if( $field == '@terms:area' ||
+        }elseif( $field == '@terms:area' ||
             $field == 'longDescription'){
-            echo trim(preg_replace('/\PL/u', ' ', $metaData));          
+            $valueField = trim(preg_replace('/\PL/u', ' ', $metaData));
         }elseif($field == 'name' || $field == 'nomeCompleto' || $field == 'shortDescription' ||
                 $field == "genero" || $field == 'telefone1' || $field == 'telefone2' || $field == 'emailPrivado' || $field == 'emailPublico') {
-
-           echo $owner[$field];
+                
+                $valueField = $owner[$field];
 
         }elseif($field == "facebook" || $field == "intagram" || 
                 $field == "twitter" || $field == "site" || 
                 $field == "googleplus"){
-            echo str_replace(array('\\', '"'), '', $metaData); 
-
+                $valueField = str_replace(array('\\', '"'), '', $metaData);
         }
         elseif( $field == 'dataDeNascimento') {
             
             $date = DateTime::createFromFormat('Y-m-d', $owner['dataDeNascimento']);
-            echo $date->format('d/m/Y');
+            $valueField = $date->format('d/m/Y');
 
         }elseif($field == 'documento') { // PARA FORMATAR CPF OU CNPJ
             $doc =  self::clearCPF_CNPJ($owner[$field]); // retirando formatação caso venha
             $str = strlen($doc); // total de carecteres
             if($str == 11) {
-                echo self::mask($doc,'###.###.###-##');
+                $valueField = self::mask($doc,'###.###.###-##');
             }else{
-                echo self::mask($doc,'##.###.###/####-##');
+                $valueField = self::mask($doc,'##.###.###/####-##');
             }
         }
-
+        if(!is_null($valueField)) {
+            echo $valueField;
+        }else{
+            echo '<span class="my-reg-font-10">Não informado</span>';
+        }
     }
 
 
