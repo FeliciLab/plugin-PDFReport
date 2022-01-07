@@ -541,4 +541,86 @@ class Pdf extends \MapasCulturais\Entity{
         
         return $fields;
     }
+
+    static public function sortArrayForNAEvaluations($sub, $opp){
+
+        $app = App::i();
+
+        $committee = $opp->getEvaluationCommittee();
+        
+        $users = [];
+        foreach ($committee as $item) {
+            $users[] = $item->agent->user->id;
+        }
+
+        $status = [ 
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_EVALUATED,
+            \MapasCulturais\Entities\RegistrationEvaluation::STATUS_SENT
+        ];
+
+        usort($sub, function($item1,$item2) use ($app, $users, $status){
+            // Comparação das notas para saber se os itens possuem a mesma nota consolidade para que possamos fazer a verificação das notas dos criterios
+            if ($item1->consolidatedResult == $item2->consolidatedResult) {
+                // Pegando as avaliações dos objetos que estão sendo comparados para ordenação;
+                $evaluations_1 = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($item1, $users, $status);
+                $evaluations_2 = $app->repo('RegistrationEvaluation')->findByRegistrationAndUsersAndStatus($item2, $users, $status);
+                $eval_1;
+                $eval_2;
+                foreach ($evaluations_1 as $eval){
+                    if(empty($eval_1)){
+                        $eval_1 = $eval->evaluationData;
+                    }else{
+                        $notes = $eval->evaluationData;
+                        foreach($notes as $key => $value){
+                            if($key != 'na' && $key != 'obs'){
+                                if($eval_1->$key == "" && $value == ""){
+                                }else if($eval_1->$key == ""){
+                                    $eval_1->$key = $value;
+                                }else if($value == ""){
+                                }else{
+                                    $eval_1->$key += $value;
+                                    $eval_1->$key = $eval_1->$key/count($users);
+                                }
+                            }
+                        }
+                    }
+                }
+                foreach ($evaluations_2 as $eval){
+                    if(empty($eval_2)){
+                        $eval_2 = $eval->evaluationData;
+                    }else{
+                        $notes = $eval->evaluationData;
+                        foreach($notes as $key => $value){
+                            if($key != 'na' && $key != 'obs'){
+                                if($eval_2->$key == "" && $value == ""){
+                                }else if($eval_2->$key == ""){
+                                    $eval_2->$key = $value;
+                                }else if($value == ""){
+                                }else{
+                                    $eval_2->$key += $value;
+                                    $eval_2->$key = $eval_2->$key/count($users);
+                                }
+                            }
+                        }
+                    }
+                }
+                foreach($eval_1 as $key => $value){
+                    if($key != 'na' && $key != 'obs'){
+                        if($value != "" && $eval_2->$key == ""){
+                            return -1;
+                        }else if($value == "" && $eval_2->$key != ""){
+                            return 1;
+                        }else if($value < $eval_2->$key){
+                            return 1;
+                        }else if($value > $eval_2->$key){
+                            return -1;
+                        }
+                    }
+                }
+                return 0;
+            }
+            return ($item1->consolidatedResult < $item2->consolidatedResult) ? 1 : -1;
+        });
+        return $sub;
+    }
 }

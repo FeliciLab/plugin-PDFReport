@@ -14,9 +14,11 @@
         if ($item1->consolidatedResult == $item2->consolidatedResult) return 0;
         return ($item1->consolidatedResult < $item2->consolidatedResult) ? 1 : -1;
     }
-    usort($sub,'invenDescSort');
-    
-  
+    if($type == "technicalna"){
+        $sub = Pdf::sortArrayForNAEvaluations($sub, $opp);
+    }else{
+        usort($sub, 'invenDescSort');
+    }
 ?>
 <div class="container">
     <?php 
@@ -35,7 +37,10 @@
                     <th class="text-left" style="margin-top: 5px;" width="22%">Inscrição</th>
                     <th class="text-left" width="68%">Candidatos</th>
                     <?php 
-                        if(isset($preliminary)){
+                        if($type == "technicalna" && !isset($preliminary)){
+                            echo '<th class="text-center" width="10%">NP</th>' ;
+                        }
+                        else if(isset($preliminary)){
                             echo '<th class="text-center" width="10%">NF</th>' ;
                         }else{
                             foreach($sections as $key => $sec){
@@ -65,7 +70,9 @@
                             <td class="text-left"><?php echo $nameSub->number; ?></td>
                             <td class="text-left"><?php echo $nameSub->owner->name; ?></td>
                             <?php 
-                                if(isset($preliminary)){ ?>
+                                if($type == "technicalna" && !isset($preliminary)){ ?>
+                                    <td class="text-center"><?php echo $nameSub->preliminaryResult; ?></td>
+                                <?php }else if(isset($preliminary)){ ?>
                                     <td class="text-center"><?php echo $nameSub->consolidatedResult; ?></td>
                                 <?php } else{
                                     foreach($sections as $key => $sec){ 
